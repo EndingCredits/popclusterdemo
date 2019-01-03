@@ -2,10 +2,20 @@ var data = [];
 var clusters;
 var zoom_level = 1.0;
 var num_points = 30;
+var clust_type = 'heirarchical';
 var dist_type = 'avg';
 
-var dropdown = document.getElementById("distSelector");
-dropdown.oninput = function() {
+var loadDataLink = document.getElementById("loadDataLink");
+loadDataLink.onclick = function () { loadData(10000); return false; }
+
+var typeDropdown = document.getElementById("typeSelector");
+typeDropdown.oninput = function() {
+  clust_type = this.value;
+  buildClusters(dist_type, clust_type);
+};
+
+var distDropdown = document.getElementById("distSelector");
+distDropdown.oninput = function() {
   if (dist_type != this.value) {
     dist_type = this.value;
 	buildClusters(dist_type);
@@ -73,6 +83,9 @@ mapContainer.on('plotly_relayout',
 	  console.log(scale);
 	  if (! isNaN(scale)) {
 		zoom_level = scale;
+		if (clust_type == 'radial') {
+			buildClusters(dist_type, clust_type);
+		}
 		redraw(zoom_level, num_points);
 	  }
    });
@@ -137,29 +150,35 @@ function redraw(zoom, num_points = 30) {
 // Build clusters
 var loadingIndicator = document.getElementById("loadingIndicator");
 var loadingBlackout = document.getElementById("loadingBlackout");
-function buildClusters(dist_type) {
+function buildClusters(dist_type, clust_method) {
 	loadingIndicator.innerHTML = "Building cluster trees...";
     loadingBlackout.style.display = 'block';
     setTimeout( function() {
 	  var t = performance.now();
-	  clusters = hcluster()
-	    .distance('euclidean')
-	    .linkage(dist_type)
-	    // .verbose(true)
-	    .dataF(data);
+	  if (clust_method == 'radial') {  
+	    clusters = rcluster()
+		  .threshold(2.5/zoom_level)
+		  .data(data);
+	  } else {
+	    clusters = hcluster()
+	      .distance('euclidean')
+	      .linkage(dist_type)
+	      // .verbose(true)
+	      .data(data);
+	  }
 	  t = performance.now() - t;
 	  loadingIndicator.innerHTML = "Done! (" + t/1000 + " seconds)";
 	  loadingBlackout.style.display = 'none';
-	  console.log(clusters.tree());
 	  
 	  redraw(zoom_level, num_points);
-	  }, 10)
+	  }, 50 );
 	
 }
 
 
 // Load data
-Plotly.d3.csv('https://raw.githubusercontent.com/plotly/datasets/master/2014_us_cities.csv', function(err, rows){
+function loadData(n) {
+  Plotly.d3.csv('https://raw.githubusercontent.com/plotly/datasets/master/2014_us_cities.csv', function(err, rows){
     
 	data = rows.map(function(row) { return {
 		'name': row['name'],
@@ -167,9 +186,14 @@ Plotly.d3.csv('https://raw.githubusercontent.com/plotly/datasets/master/2014_us_
 		'lat': row['lat'],
 		'lon': row['lon'],
 		'position': [ row['lat'], row['lon'] ]
-	} });
+	} })
+	.sort((a,b) => b.pop - a.pop)
+	.slice(0,n);
 	
-
+    
     buildClusters(dist_type);
 	
-});
+  });
+}
+
+loadData(1000);

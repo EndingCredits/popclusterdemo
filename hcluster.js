@@ -2,51 +2,8 @@
 // This is a modified version of hcluster.js from https://github.com/cmpolis/hcluster.js/
 //
 
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.hcluster = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 //
-//
-//
-
-module.exports = {
-  euclidean: require('./src/euclidean'),
-  manhattan: require('./src/manhattan'),
-  chebyshev: require('./src/chebyshev'),
-  angular: require('./src/angular'),
-  cosineSimilarity: require('./src/cosine-similarity'),
-  angularSimilarity: require('./src/angular-similarity')
-};
-
-},{"./src/angular":3,"./src/angular-similarity":2,"./src/chebyshev":4,"./src/cosine-similarity":5,"./src/euclidean":6,"./src/manhattan":7}],2:[function(require,module,exports){
-//
-//
-//
-var cosineSimilarity = require('./cosine-similarity');
-
-//
-module.exports = function(a, b, accessor) {
-  var cosSimValue = cosineSimilarity.apply(null, arguments);
-  return 1 - ( (2 * Math.acos(cosSimValue)) / Math.PI);
-};
-
-},{"./cosine-similarity":5}],3:[function(require,module,exports){
-//
-//
-//
-var cosineSimilarity = require('./cosine-similarity');
-
-//
-module.exports = function(a, b, accessor) {
-  var cosSimValue = cosineSimilarity.apply(null, arguments);
-  return (2 * Math.acos(cosSimValue)) / Math.PI;
-};
-
-},{"./cosine-similarity":5}],4:[function(require,module,exports){
-//
-//
-//
-
-//
-module.exports = function(a, b, accessor) {
+function linfDistance(a, b, accessor) {
   var x = accessor ? a.map(accessor) : a,
       y = accessor ? b.map(accessor) : b,
       distance = Math.abs(x[0] - y[0]);
@@ -54,15 +11,10 @@ module.exports = function(a, b, accessor) {
     distance = Math.max(distance, Math.abs(x[ndx] - y[ndx]));
   }
   return distance;
-};
-
-},{}],5:[function(require,module,exports){
-//
-//
-//
+}
 
 //
-module.exports = function(a, b, accessor) {
+function cosineSimilarity(a, b, accessor) {
   var x = accessor ? a.map(accessor) : a,
       y = accessor ? b.map(accessor) : b,
       dotProduct = 0,
@@ -75,15 +27,10 @@ module.exports = function(a, b, accessor) {
     dotProduct += x[ndx] * y[ndx];
   }
   return dotProduct / ( Math.sqrt(xMagnitude) * Math.sqrt(yMagnitude) );
-};
-
-},{}],6:[function(require,module,exports){
-//
-//
-//
+}
 
 //
-module.exports = function(a, b, accessor) {
+function euclideanDistance(a, b, accessor) {
   var x = accessor ? a.map(accessor) : a,
       y = accessor ? b.map(accessor) : b,
       distance = 0;
@@ -91,15 +38,10 @@ module.exports = function(a, b, accessor) {
     distance += (x[ndx] - y[ndx]) * (x[ndx] - y[ndx]);
   }
   return Math.sqrt(distance);
-};
-
-},{}],7:[function(require,module,exports){
-//
-//
-//
+}
 
 //
-module.exports = function(a, b, accessor) {
+function manhattanDistance(a, b, accessor) {
   var x = accessor ? a.map(accessor) : a,
       y = accessor ? b.map(accessor) : b,
       distance = 0;
@@ -107,10 +49,8 @@ module.exports = function(a, b, accessor) {
     distance += Math.abs(x[ndx] - y[ndx]);
   }
   return distance;
-};
+}
 
-},{}],8:[function(require,module,exports){
-'use strict';
 
 var hasOwn = Object.prototype.hasOwnProperty;
 var toStr = Object.prototype.toString;
@@ -123,7 +63,7 @@ var isArray = function isArray(arr) {
 	return toStr.call(arr) === '[object Array]';
 };
 
-var isPlainObject = function isPlainObject(obj) {
+function isPlainObject(obj) {
 	if (!obj || toStr.call(obj) !== '[object Object]') {
 		return false;
 	}
@@ -143,7 +83,7 @@ var isPlainObject = function isPlainObject(obj) {
 	return typeof key === 'undefined' || hasOwn.call(obj, key);
 };
 
-module.exports = function extend() {
+function extend() {
 	var options, name, src, copy, copyIsArray, clone,
 		target = arguments[0],
 		i = 1,
@@ -196,14 +136,6 @@ module.exports = function extend() {
 	return target;
 };
 
-
-},{}],9:[function(require,module,exports){
-//
-//
-//
-var distance = require('distancejs'),
-    extend = require('extend');
-
 //
 var hcluster = function() {
   var data,
@@ -211,8 +143,9 @@ var hcluster = function() {
       clustersGivenK,
       treeRoot,
       posKey = 'position',
+	  accessor = (d) => d['position'],
       distanceName = 'angular',
-      distanceFn = distance.angular,
+      distanceFn = euclideanDistance,
       linkage = 'avg',
 	  threshold = Infinity,
       verbose = false;
@@ -233,17 +166,13 @@ var hcluster = function() {
     clust._buildTree();
     return clust;
   };
-  clust.dataF = function(value) {
-    if(!arguments.length) return data;
-
-    // dataset will be mutated
-    data = value;
-    clust._buildTreeFast();
-    return clust;
-  };
   clust.posKey = function(value) {
     if(!arguments.length) return posKey;
     posKey = value;
+    return clust;
+  };
+  clust.accessor = function(value) {
+    accessor = value;
     return clust;
   };
   clust.linkage = function(value) {
@@ -260,9 +189,9 @@ var hcluster = function() {
     if(!arguments.length) return distanceName;
     distanceName = value;
     distanceFn = {
-      angular: distance.angular,
-      euclidean: distance.euclidean
-    }[value] || distance.angular;
+      angular: cosineSimilarity,
+      euclidean: euclideanDistance
+    }[value] || euclideanDistance;
     return clust;
   }
 
@@ -290,117 +219,14 @@ var hcluster = function() {
   };
 
   //
-  // math, matrix utility fn's
-
-  // return unique pairs of indexes on n x n matrix above the diagonal
-  clust._squareMatrixPairs = function(n) {
-    var pairs = [];
-    for(var row = 0; row < n; row++) {
-      for(var col = row + 1; col < n; col++) {
-        pairs.push([row, col]);
-      }
-    }
-    return pairs;
-  };
-
-  // average distance between set of cluster indexes
-  clust._avgDistance = function(setA, setB) {
-    var distance = 0;
-    for(var ndxA = 0; ndxA < setA.length; ndxA++) {
-      for(var ndxB = 0; ndxB < setB.length; ndxB++) {
-        distance += data[setA[ndxA]]._distances[setB[ndxB]];
-      }
-    }
-    return distance / setA.length / setB.length;
-  };
-
-  // min distance between set of cluster indexes
-  clust._minDistance = function(setA, setB) {
-    var distances = [];
-    for(var ndxA = 0; ndxA < setA.length; ndxA++) {
-      for(var ndxB = 0; ndxB < setB.length; ndxB++) {
-        distances.push(data[setA[ndxA]]._distances[setB[ndxB]]);
-      }
-    }
-    return distances.sort()[0];
-  };
-
-  // max distance between set of cluster indexes
-  clust._maxDistance = function(setA, setB) {
-    var distances = [];
-    for(var ndxA = 0; ndxA < setA.length; ndxA++) {
-      for(var ndxB = 0; ndxB < setB.length; ndxB++) {
-        distances.push(data[setA[ndxA]]._distances[setB[ndxB]]);
-      }
-    }
-    return distances.sort()[distances.length-1];
-  };
-
-  //
   // tree construction
   //
   clust._buildTree = function() {
     if(!data || !data.length) throw new Error('Need `data` to build tree');
 
-    //
-    var node, clusterPairs, nearestPair, newCluster;
-    clusters = [];
-    clustersGivenK = [];
-    tree = {};
-
-    // calculate distances and build single datum clusters
-    data.forEach(function(d, ndx) {
-      d._distances = data.map(function(compareTo) {
-        return distanceFn(d[posKey], compareTo[posKey]);
-      });
-      clusters.push(extend(d, {
-        height: 0,
-        indexes: [ndx]
-      }));
-    });
-
-    // for tree of n leafs, n-1 linkages
-    for(var iter = 0; iter < data.length - 1; iter++) {
-      verbose && console.log(iter + ': ' +
-          clusters.map(function(c) { return c.indexes; }).join('|'));
-
-      // find closest pair of clusters, pair[2] is distance
-      clusterPairs = clust._squareMatrixPairs(clusters.length);
-      clusterPairs.forEach(function(pair) {
-        pair[2] = clust['_'+linkage+'Distance'](
-                  clusters[pair[0]].indexes,
-                  clusters[pair[1]].indexes ); });
-      nearestPair = clusterPairs
-        .reduce(function(pairA, pairB) { return pairA[2] <= pairB[2] ? pairA : pairB; },
-                [0, 0, Infinity]);
-      newCluster = {
-        name: 'Node ' + iter,
-        height: nearestPair[2],
-        indexes: clusters[nearestPair[0]].indexes.concat(clusters[nearestPair[1]].indexes),
-        children: [ clusters[nearestPair[0]], clusters[nearestPair[1]] ],
-      };
-      verbose && console.log(newCluster);
-      clustersGivenK.push(clusters.map(function(c) { return c.indexes; }));
-
-      // remove merged nodes and push new node
-      clusters.splice(Math.max(nearestPair[0], nearestPair[1]),1);
-      clusters.splice(Math.min(nearestPair[0], nearestPair[1]),1);
-      clusters.push(newCluster);
-    }
-
-    treeRoot = clusters[0];
-    // clust._rebalanceTree(treeRoot);
-  };
-
-  //
-  // fast tree construction
-  //
-  clust._buildTreeFast = function() {
-    if(!data || !data.length) throw new Error('Need `data` to build tree');
-
 	clusters = [];
 	clustersGivenK = [];
-    tree = {};
+    //tree = {};
 	
 	// Adapted from clusterfck repo	
 	var dists = [],  // distances between each pair of clusters
@@ -424,10 +250,12 @@ var hcluster = function() {
 	
 	
     // Calculate distances
+	console.log("Calculating distances");
+	console.time();
     for (var i = 0; i < clusters.length; i++) {
        for (var j = 0; j <= i; j++) {
           var dist = (i == j) ? Infinity : 
-			 distanceFn(clusters[i][posKey], clusters[j][posKey]);
+			 distanceFn(accessor(clusters[i]), accessor(clusters[j]));
           dists[i][j] = dist;
           dists[j][i] = dist;
 
@@ -436,8 +264,12 @@ var hcluster = function() {
           }
        }
     }
+	console.log("Done!");
+	console.timeEnd();
 	
 	// Main loop
+	console.log("Performing heirarchical clustering");
+	console.time();
 	for(var iter = 0; iter < data.length - 1; iter++) {
 		
       // find two closest clusters from cached mins
@@ -525,6 +357,9 @@ var hcluster = function() {
 	  // keep track of clusters
 	  clustersGivenK.push(clusters.map(function(c) { return c.indexes; }));
     }
+	
+	console.log("Done!");
+	console.timeEnd();
 
     treeRoot = clusters[0];
 	
@@ -558,9 +393,4 @@ var hcluster = function() {
   // };
 
   return clust;
-};
-
-module.exports = hcluster;
-
-},{"distancejs":1,"extend":8}]},{},[9])(9)
-});
+}

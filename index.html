@@ -14,7 +14,16 @@
 
   <body>
     <h3>2014 US City Populations</h3>
-    <p>Adapted from plotly bubblemap demo</p>
+    <p>Adapted from plotly bubblemap demo
+	<a id="loadDataLink" href="#">(load full dataset)</a></p>
+	
+	<div>
+	  Clustering type:
+	  <select id="typeSelector">
+		<option value="heirarchical">Heirarchical Clustering</option>
+		<option value="radial">Radial Clustering</option>
+	  </select>
+	</div>
 	
 	<div>
 	  Dist between clusters measure:
@@ -42,6 +51,7 @@
     <script src="http://d3js.org/d3.v3.min.js"></script>
 	<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="./hcluster.js"></script>
+	<script src="./rcluster.js"></script>
     <script src="./app2.js"></script>
   </body>
 </html>
