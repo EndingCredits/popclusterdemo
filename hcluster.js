@@ -139,10 +139,10 @@ function extend() {
 //
 var hcluster = function() {
   var data,
+      dists,
       clusters,
       clustersGivenK,
       treeRoot,
-      posKey = 'position',
 	  accessor = (d) => d['position'],
       distanceName = 'angular',
       distanceFn = euclideanDistance,
@@ -163,8 +163,14 @@ var hcluster = function() {
 
     // dataset will be mutated
     data = value;
+	clust._calcDists();
     clust._buildTree();
     return clust;
+  };
+  // rebuilds tree without recalculating distance matrix
+  clust.rebuild = function() {
+    clust._buildTree();
+	return clust;
   };
   clust.posKey = function(value) {
     if(!arguments.length) return posKey;
@@ -197,7 +203,6 @@ var hcluster = function() {
 
   //
   // get tree properties
-
   clust.orderedNodes = function() {
     if(!treeRoot) throw new Error('Need to passin data and build tree first.');
 
@@ -219,19 +224,41 @@ var hcluster = function() {
   };
 
   //
-  // tree construction
+  // calculate distances
   //
-  clust._buildTree = function() {
+  clust._calcDists = function() {
     if(!data || !data.length) throw new Error('Need `data` to build tree');
-
+		
+    // Calculate distances
+	console.log("Calculating distances");
+	console.time();
+	dists = Array(data.length);
+    for (var i = 0; i < data.length; i++) {
+       dists[i] = Array(data.length);
+       for (var j = 0; j <= i; j++) {
+          var dist = (i == j) ? Infinity : 
+			 distanceFn(accessor(data[i]), accessor(data[j]));
+          dists[i][j] = dist;
+          dists[j][i] = dist;
+       }
+    }
+	console.log("Done!");
+	console.timeEnd();
+  }
+  
+  //
+  // tree construction
+  //	
+  clust._buildTree = function() {
+	if(!data || !data.length) throw new Error('Need `data` to build tree');
+    if(!dists || !dists.length) throw new Error('Need to calculate dists first');
+	
 	clusters = [];
 	clustersGivenK = [];
-    //tree = {};
 	
 	// Adapted from clusterfck repo	
-	var dists = [],  // distances between each pair of clusters
-        mins = [],   // closest cluster for each cluster
-        index = [];  // keep a hash of all clusters by key
+    var mins = Array(data.length),   // closest cluster for each cluster
+        index = Array(data.length);  // keep a hash of all clusters by key
 	
     // Initialise variables
 	for (var i = 0; i < data.length; i++) {
@@ -244,28 +271,13 @@ var hcluster = function() {
 		});
        clusters[i] = cluster;
        index[i] = cluster;
-       dists[i] = [];
        mins[i] = 0;
-    }
-	
-	
-    // Calculate distances
-	console.log("Calculating distances");
-	console.time();
-    for (var i = 0; i < clusters.length; i++) {
-       for (var j = 0; j <= i; j++) {
-          var dist = (i == j) ? Infinity : 
-			 distanceFn(accessor(clusters[i]), accessor(clusters[j]));
-          dists[i][j] = dist;
-          dists[j][i] = dist;
-
-          if (dist < dists[i][mins[i]]) {
+	   for (var j = 0; j < data.length; j++) {
+	      if (dists[i][j] < dists[i][mins[i]]) {
              mins[i] = j;               
           }
-       }
+	   }
     }
-	console.log("Done!");
-	console.timeEnd();
 	
 	// Main loop
 	console.log("Performing heirarchical clustering");

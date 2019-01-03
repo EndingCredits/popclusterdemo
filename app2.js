@@ -9,16 +9,28 @@ var loadDataLink = document.getElementById("loadDataLink");
 loadDataLink.onclick = function () { loadData(10000); return false; }
 
 var typeDropdown = document.getElementById("typeSelector");
+var heirarchicalControls = document.getElementById("heirarchicalControls");
+var radialControls = document.getElementById("radialControls");
 typeDropdown.oninput = function() {
   clust_type = this.value;
   buildClusters(dist_type, clust_type);
+  
+  if (clust_type == 'radial') {
+	  heirarchicalControls.style.display = 'none';
+	  radialControls.style.display = 'block';
+  } else {
+	  heirarchicalControls.style.display = 'block';
+	  radialControls.style.display = 'none';
+  }
 };
 
 var distDropdown = document.getElementById("distSelector");
 distDropdown.oninput = function() {
   if (dist_type != this.value) {
     dist_type = this.value;
-	buildClusters(dist_type);
+	clusters.linkage(dist_type);
+    rebuildClusters();
+    redraw(zoom_level, num_points);
   }
 };
 
@@ -84,9 +96,11 @@ mapContainer.on('plotly_relayout',
 	  if (! isNaN(scale)) {
 		zoom_level = scale;
 		if (clust_type == 'radial') {
-			buildClusters(dist_type, clust_type);
-		}
-		redraw(zoom_level, num_points);
+			clusters.threshold(2.5/zoom_level);
+			rebuildClusters();
+		} else {
+		    redraw(zoom_level, num_points);
+	    }
 	  }
    });
 
@@ -172,8 +186,23 @@ function buildClusters(dist_type, clust_method) {
 	  
 	  redraw(zoom_level, num_points);
 	  }, 50 );
-	
 }
+
+function rebuildClusters() {
+	loadingIndicator.innerHTML = "Building cluster trees...";
+    loadingBlackout.style.display = 'block';
+    setTimeout( function() {
+	  var t = performance.now();
+	  clusters.rebuild();
+	  t = performance.now() - t;
+	  loadingIndicator.innerHTML = "Done! (" + t/1000 + " seconds)";
+	  loadingBlackout.style.display = 'none';
+	  
+	  redraw(zoom_level, num_points);
+	  }, 10 );
+}
+
+
 
 
 // Load data

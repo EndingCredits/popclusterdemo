@@ -54,13 +54,12 @@ function manhattanDistance(a, b, accessor) {
 //
 var rcluster = function() {
   var data,
+      dists,
       clusters,
       clustersGivenK,
-      treeRoot,
-      posKey = 'position',
+	  accessor = (d) => d['position'],
       distanceName = 'angular',
       distanceFn = euclideanDistance,
-      linkage = 'avg',
 	  threshold = 1,
       verbose = false;
 
@@ -77,22 +76,24 @@ var rcluster = function() {
 
     // dataset will be mutated
     data = value;
+	clust._calcDists();
     clust._findClusters();
     return clust;
   };
+  // Recalculates clusters without recalculating distances
+  clust.rebuild = function() {
+    clust._findClusters();
+	return clust;
+  };
   clust.threshold = function(value) {
     if(!arguments.length) return threshold;
-    threshold = value;
+	threshold = value;
+    
     return clust;
   };
-  clust.posKey = function(value) {
+  clust.accessor = function(value) {
     if(!arguments.length) return posKey;
-    posKey = value;
-    return clust;
-  };
-  clust.linkage = function(value) {
-    if(!arguments.length) return linkage;
-    linkage = value;
+    accessor = value;
     return clust;
   };
   clust.verbose = function(value) {
@@ -132,31 +133,43 @@ var rcluster = function() {
   };
 
   //
-  // tree construction
+  // calculate distances
   //
-  clust._findClusters = function() {
+  clust._calcDists = function() {
     if(!data || !data.length) throw new Error('Need `data` to build tree');
 
-	clusters = [];
-	
-	// Adapted from clusterfck repo	
-	var neighbours = [],
-		degree = [],
-		active = [];
-	
-    // Initialise variables
-	
-    // Calculate distances and build graph
+    // Calculate distances
+	dists = Array(data.length);
 	console.log("Calculating distances");
 	console.time();
+    for (var i = 0; i < data.length; i++) {
+	   dists[i] = Array(data.length);
+       for (var j = 0; j <= i; j++) {
+          var dist = (i == j) ? Infinity : 
+			 distanceFn(accessor(data[i]), accessor(data[j]));
+          dists[i][j] = dist;
+          dists[j][i] = dist;
+       }
+    }
+	console.log("Done!");
+	console.timeEnd();
+  }
+  
+  clust._findClusters = function() {
+    if(!data || !data.length) throw new Error('Need `data` to build tree');
+    if(!dists || !dists.length) throw new Error('Need to calculate dists first');
+	
+	clusters = [];
+	
+	// Build adjacency graph
+    var neighbours = Array(data.length),
+		degree = Array(data.length),
+		active = Array(data.length);
     for (var i = 0; i < data.length; i++) {
 	   active[i] = 1, // dists[i] = [],
 	   degree[i] = 0, neighbours[i] = [];
        for (var j = 0; j <= i; j++) {
-          var dist = (i == j) ? Infinity : 
-			 distanceFn(data[i][posKey], data[j][posKey]);
-          //dists[i][j] = dist;
-          //dists[j][i] = dist;
+          var dist = dists[i][j];
 
           if (dist < threshold) {
 			 neighbours[i].push(j);
@@ -166,8 +179,6 @@ var rcluster = function() {
           }
        }
     }
-	console.log("Done!");
-	console.timeEnd();
 	
     // Iteratively remove maximal cliques
 	console.log("Computing covering...");
